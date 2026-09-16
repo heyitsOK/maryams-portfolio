@@ -39,7 +39,7 @@ export async function sendContactMessage(
   try {
     const [newMessage, confirmation] = await Promise.all([
       resend.emails.send({
-        from: "onboarding@resend.dev",
+        from: "noreply@maryamkhanmedia.com",
         to: recipient,
         replyTo: email,
         template: {
@@ -51,7 +51,7 @@ export async function sendContactMessage(
         },
       }),
       resend.emails.send({
-        from: "onboarding@resend.dev",
+        from: "noreply@maryamkhanmedia.com",
         to: email,
         template: {
           id: "contact-confirmation",
