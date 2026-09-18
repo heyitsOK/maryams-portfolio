@@ -1,6 +1,7 @@
 
 'use client'
 
+import Script from "next/script";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
@@ -9,6 +10,31 @@ import {
 } from "@/app/actions/contact";
 
 const initialState: ContactFormState = { status: "idle" };
+const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      ready(callback: () => void): void;
+      execute(siteKey: string, options: { action: string }): Promise<string>;
+    };
+  }
+}
+
+async function getRecaptchaToken() {
+  if (!recaptchaSiteKey || !window.grecaptcha) {
+    return null;
+  }
+
+  return new Promise<string | null>((resolve) => {
+    window.grecaptcha?.ready(() => {
+      window.grecaptcha
+        ?.execute(recaptchaSiteKey, { action: "contact" })
+        .then(resolve)
+        .catch(() => resolve(null));
+    });
+  });
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -25,10 +51,29 @@ function SubmitButton() {
 }
 
 export function ContactForm() {
-  const [state, formAction] = useActionState(sendContactMessage, initialState);
+  const [state, formAction] = useActionState(
+    async (previousState: ContactFormState, formData: FormData) => {
+      const recaptchaToken = await getRecaptchaToken();
+
+      if (!recaptchaToken) {
+        return { status: "error", message: "Please try again." } as ContactFormState;
+      }
+
+      formData.set("recaptchaToken", recaptchaToken);
+      return sendContactMessage(previousState, formData);
+    },
+    initialState,
+  );
 
   return (
-    <form action={formAction} className="space-y-4">
+    <>
+      {recaptchaSiteKey && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`}
+          strategy="afterInteractive"
+        />
+      )}
+      <form action={formAction} className="space-y-4">
       <input
                 name="name"
                 type="text"
@@ -61,6 +106,7 @@ export function ContactForm() {
           {state.message}
         </p>
       )}
-    </form>
+      </form>
+    </>
   )
 }
